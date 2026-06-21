@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import MessageBubble from "./MessageBubble";
 import ModeToggle from "./ModeToggle";
+import PatientNotes from "./PatientNotes";
 
 interface Message {
   id: number;
@@ -103,6 +104,9 @@ export default function ConversationPanel({ conversation, onModeChange, onDelete
         ))}
         <div ref={bottomRef} />
       </div>
+
+      {/* Notas del paciente */}
+      <PatientNotes conversationId={conversation.id} />
 
       {/* Input */}
       <div className="px-4 py-3 border-t border-gray-200 bg-white">

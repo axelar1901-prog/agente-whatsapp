@@ -54,6 +54,15 @@ db.exec(`
   CREATE INDEX IF NOT EXISTS idx_outbox_pending
     ON outbox(sent, created_at);
 
+  CREATE TABLE IF NOT EXISTS patient_notes (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    conversation_id INTEGER NOT NULL REFERENCES conversations(id),
+    content TEXT NOT NULL,
+    created_at INTEGER NOT NULL DEFAULT (unixepoch())
+  );
+
+  CREATE INDEX IF NOT EXISTS idx_notes_conv ON patient_notes(conversation_id, created_at);
+
   CREATE TABLE IF NOT EXISTS reminders_sent (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     event_id TEXT NOT NULL,
@@ -179,6 +188,25 @@ export const deleteConversation = db.transaction((id: number): void => {
   db.prepare("DELETE FROM messages WHERE conversation_id = ?").run(id);
   db.prepare("DELETE FROM conversations WHERE id = ?").run(id);
 });
+
+export interface PatientNote {
+  id: number;
+  conversation_id: number;
+  content: string;
+  created_at: number;
+}
+
+export function getNotes(conversationId: number): PatientNote[] {
+  return db.prepare("SELECT * FROM patient_notes WHERE conversation_id = ? ORDER BY created_at ASC").all(conversationId) as PatientNote[];
+}
+
+export function addNote(conversationId: number, content: string): PatientNote {
+  return db.prepare("INSERT INTO patient_notes (conversation_id, content) VALUES (?, ?) RETURNING *").get(conversationId, content) as PatientNote;
+}
+
+export function deleteNote(id: number): void {
+  db.prepare("DELETE FROM patient_notes WHERE id = ?").run(id);
+}
 
 export function wasReminderSent(eventId: string, type: "24h" | "1h"): boolean {
   return !!db.prepare("SELECT 1 FROM reminders_sent WHERE event_id = ? AND reminder_type = ?").get(eventId, type);
