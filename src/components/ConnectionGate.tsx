@@ -44,7 +44,7 @@ export default function ConnectionGate() {
   }
 
   async function loadConversations() {
-    const res = await fetch("/api/conversations");
+    const res = await fetch("/api/conversations", { cache: "no-store" });
     if (res.ok) setConversations(await res.json());
   }
 
