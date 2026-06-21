@@ -85,6 +85,13 @@ export default function ConversationPanel({ conversation, onModeChange, onDelete
           <p className="text-xs text-gray-400">{conversation.phone}</p>
         </div>
         <div className="flex items-center gap-2">
+          <button
+            onClick={loadMessages}
+            className="text-xs text-gray-400 hover:text-emerald-600 px-2 py-1 rounded hover:bg-emerald-50 transition-colors"
+            title="Actualizar mensajes"
+          >
+            🔄
+          </button>
           <ModeToggle conversationId={conversation.id} mode={mode} onChange={handleModeChange} />
           {confirmDelete ? (
             <div className="flex gap-1">
