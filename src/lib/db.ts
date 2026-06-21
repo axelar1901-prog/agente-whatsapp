@@ -54,6 +54,14 @@ db.exec(`
   CREATE INDEX IF NOT EXISTS idx_outbox_pending
     ON outbox(sent, created_at);
 
+  CREATE TABLE IF NOT EXISTS reminders_sent (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    event_id TEXT NOT NULL,
+    reminder_type TEXT CHECK(reminder_type IN ('24h','1h')) NOT NULL,
+    sent_at INTEGER NOT NULL DEFAULT (unixepoch()),
+    UNIQUE(event_id, reminder_type)
+  );
+
   CREATE TABLE IF NOT EXISTS booking_state (
     conversation_id INTEGER PRIMARY KEY REFERENCES conversations(id),
     step TEXT NOT NULL DEFAULT 'idle',
@@ -171,6 +179,14 @@ export const deleteConversation = db.transaction((id: number): void => {
   db.prepare("DELETE FROM messages WHERE conversation_id = ?").run(id);
   db.prepare("DELETE FROM conversations WHERE id = ?").run(id);
 });
+
+export function wasReminderSent(eventId: string, type: "24h" | "1h"): boolean {
+  return !!db.prepare("SELECT 1 FROM reminders_sent WHERE event_id = ? AND reminder_type = ?").get(eventId, type);
+}
+
+export function markReminderSent(eventId: string, type: "24h" | "1h"): void {
+  db.prepare("INSERT OR IGNORE INTO reminders_sent (event_id, reminder_type) VALUES (?, ?)").run(eventId, type);
+}
 
 export interface BookingState {
   conversation_id: number;

@@ -10,6 +10,7 @@ import path from "node:path";
 import fs from "node:fs";
 import { setConnectionState } from "../db";
 import { handleIncomingMessages } from "./handler";
+import { checkAndSendReminders } from "../reminders";
 
 const AUTH_DIR = path.resolve(process.cwd(), "auth");
 
@@ -80,6 +81,10 @@ async function start(): Promise<void> {
       const phone = rawId.split(":")[0];
       console.log(`[bot] Conectado como ${phone}`);
       setConnectionState({ status: "connected", qr_string: null, phone });
+
+      // Verificar recordatorios cada 5 minutos
+      setInterval(() => checkAndSendReminders(sock), 5 * 60 * 1000);
+      console.log("[bot] Recordatorios automáticos activados (cada 5 min)");
     }
 
     if (connection === "close") {
