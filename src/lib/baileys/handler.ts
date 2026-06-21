@@ -66,8 +66,8 @@ export async function handleIncomingMessages(
         continue;
       }
 
-      // Manejar selección del menú (1-5)
-      const menuResult = handleMenuSelection(text, convo.id);
+      // Manejar selección del menú (1-5) — solo si no hay flujo de cita activo
+      const menuResult = bookingStateNow.step === "idle" ? handleMenuSelection(text, convo.id) : null;
       if (menuResult && menuResult.action !== "ai_reply") {
         insertMessage(convo.id, "assistant", menuResult.response);
         await sock.sendMessage(remoteJid, { text: menuResult.response });
