@@ -1,6 +1,6 @@
-import { NextRequest, NextResponse } from "next/server";
-
 export const dynamic = "force-dynamic";
+
+import { NextRequest, NextResponse } from "next/server";
 import { getMessages, insertMessage, enqueueOutbox, getConversationById } from "@/lib/db";
 
 interface Ctx { params: Promise<{ conversationId: string }> }

@@ -8,7 +8,7 @@ import pino from "pino";
 import QRCode from "qrcode-terminal";
 import path from "node:path";
 import fs from "node:fs";
-import { setConnectionState } from "../db";
+import { setConnectionState, getPendingOutbox, markOutboxSent } from "../db";
 import { handleIncomingMessages } from "./handler";
 import { checkAndSendReminders } from "../reminders";
 
@@ -85,6 +85,21 @@ async function start(): Promise<void> {
       // Verificar recordatorios cada 5 minutos
       setInterval(() => checkAndSendReminders(sock), 5 * 60 * 1000);
       console.log("[bot] Recordatorios automáticos activados (cada 5 min)");
+
+      // Procesar mensajes del dashboard (outbox) cada 3 segundos
+      setInterval(async () => {
+        const pending = getPendingOutbox(10);
+        for (const item of pending) {
+          try {
+            const jid = item.phone.includes("@") ? item.phone : `${item.phone}@s.whatsapp.net`;
+            await sock.sendMessage(jid, { text: item.content });
+            markOutboxSent(item.id);
+            console.log(`[outbox] → ${item.phone}: ${item.content.slice(0, 40)}`);
+          } catch (err) {
+            console.error("[outbox] Error enviando:", err);
+          }
+        }
+      }, 3000);
     }
 
     if (connection === "close") {
