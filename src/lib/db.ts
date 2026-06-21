@@ -229,7 +229,7 @@ export function markReminderSent(eventId: string, type: "24h" | "1h"): void {
 
 export interface BookingState {
   conversation_id: number;
-  step: "idle" | "ask_name" | "ask_reason" | "show_slots" | "confirm";
+  step: "idle" | "ask_name" | "ask_reason" | "pick_day" | "show_slots" | "confirm" | "cancel_select" | "cancel_confirm" | "reschedule_select" | "reschedule_pick" | "reschedule_confirm";
   patient_name: string | null;
   reason: string | null;
   slots_json: string | null;
