@@ -10,6 +10,8 @@ import { generateReply } from "../openrouter";
 import { handleBookingFlow, isBookingIntent } from "../booking";
 import { getBookingState } from "../db";
 import { assessTriage, getTriageResponse } from "../triage";
+import { WELCOME_MENU, handleMenuSelection, isMenuTrigger } from "../menu";
+import { markGreeted } from "../db";
 
 type WASocket = ReturnType<typeof makeWASocket>;
 
@@ -48,6 +50,34 @@ export async function handleIncomingMessages(
       const fresh = getConversationById(convo.id);
       if (!fresh || fresh.mode !== "AI") {
         console.log(`[bot] Conversación ${convo.id} en modo HUMAN — sin respuesta automática`);
+        continue;
+      }
+
+      // Menú de bienvenida (primer mensaje o trigger)
+      const bookingStateNow = getBookingState(convo.id);
+      const isFirstMessage = !fresh.greeted;
+      const shouldShowMenu = (isFirstMessage || isMenuTrigger(text)) && bookingStateNow.step === "idle";
+
+      if (shouldShowMenu) {
+        markGreeted(convo.id);
+        insertMessage(convo.id, "assistant", WELCOME_MENU);
+        await sock.sendMessage(remoteJid, { text: WELCOME_MENU });
+        console.log(`[bot] → [MENU] ${phone}`);
+        continue;
+      }
+
+      // Manejar selección del menú (1-5)
+      const menuResult = handleMenuSelection(text, convo.id);
+      if (menuResult && menuResult.action !== "ai_reply") {
+        insertMessage(convo.id, "assistant", menuResult.response);
+        await sock.sendMessage(remoteJid, { text: menuResult.response });
+        console.log(`[bot] → [MENU:${menuResult.action}] ${phone}`);
+        continue;
+      }
+      if (menuResult && menuResult.action === "ai_reply" && text !== "5") {
+        insertMessage(convo.id, "assistant", menuResult.response);
+        await sock.sendMessage(remoteJid, { text: menuResult.response });
+        console.log(`[bot] → [MENU:info] ${phone}`);
         continue;
       }
 

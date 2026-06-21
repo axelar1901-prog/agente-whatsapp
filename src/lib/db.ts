@@ -16,6 +16,7 @@ db.exec(`
     phone TEXT UNIQUE NOT NULL,
     name TEXT,
     mode TEXT CHECK(mode IN ('AI','HUMAN')) NOT NULL DEFAULT 'AI',
+    greeted INTEGER NOT NULL DEFAULT 0,
     last_message_at INTEGER,
     created_at INTEGER NOT NULL DEFAULT (unixepoch())
   );
@@ -81,11 +82,17 @@ db.exec(`
   );
 `);
 
+// Migración: agregar columna greeted si no existe
+try {
+  db.exec("ALTER TABLE conversations ADD COLUMN greeted INTEGER NOT NULL DEFAULT 0");
+} catch {}
+
 export interface Conversation {
   id: number;
   phone: string;
   name: string | null;
   mode: "AI" | "HUMAN";
+  greeted: number;
   last_message_at: number | null;
   created_at: number;
 }
@@ -194,6 +201,10 @@ export interface PatientNote {
   conversation_id: number;
   content: string;
   created_at: number;
+}
+
+export function markGreeted(conversationId: number): void {
+  db.prepare("UPDATE conversations SET greeted = 1 WHERE id = ?").run(conversationId);
 }
 
 export function getNotes(conversationId: number): PatientNote[] {
