@@ -28,20 +28,24 @@ const SLOT_DURATION = 30; // minutos por cita
 export interface TimeSlot {
   start: Date;
   end: Date;
-  label: string; // "Lunes 23 jun, 10:00 AM"
+  label: string;
 }
 
-export async function getAvailableSlots(daysAhead = 5): Promise<TimeSlot[]> {
+export interface DaySlots {
+  dayLabel: string; // "Lunes 23 jun"
+  slots: TimeSlot[];
+}
+
+const DAY_NAMES = ["Dom", "Lun", "Mar", "Mié", "Jue", "Vie", "Sáb"];
+const MONTH_NAMES = ["ene", "feb", "mar", "abr", "may", "jun", "jul", "ago", "sep", "oct", "nov", "dic"];
+
+function formatDayLabel(d: Date): string {
+  return `${DAY_NAMES[d.getDay()]} ${d.getDate()} ${MONTH_NAMES[d.getMonth()]}`;
+}
+
+async function fetchBusy(timeMin: Date, timeMax: Date) {
   const auth = getAuth();
   const calendar = google.calendar({ version: "v3", auth });
-
-  const now = new Date();
-  const timeMin = new Date(now);
-  timeMin.setMinutes(now.getMinutes() + 30); // mínimo 30 min desde ahora
-
-  const timeMax = new Date(now);
-  timeMax.setDate(now.getDate() + daysAhead);
-
   const res = await calendar.freebusy.query({
     requestBody: {
       timeMin: timeMin.toISOString(),
@@ -49,14 +53,24 @@ export async function getAvailableSlots(daysAhead = 5): Promise<TimeSlot[]> {
       items: [{ id: "primary" }],
     },
   });
+  return res.data.calendars?.primary?.busy ?? [];
+}
 
-  const busy = res.data.calendars?.primary?.busy ?? [];
+export async function getSlotsByDay(daysAhead = 7): Promise<DaySlots[]> {
+  const now = new Date();
+  const timeMin = new Date(now);
+  timeMin.setMinutes(now.getMinutes() + 30);
 
-  const slots: TimeSlot[] = [];
+  const timeMax = new Date(now);
+  timeMax.setDate(now.getDate() + daysAhead);
+
+  const busy = await fetchBusy(timeMin, timeMax);
+
+  const days: DaySlots[] = [];
   const cursor = new Date(timeMin);
   cursor.setMinutes(0, 0, 0);
 
-  while (cursor < timeMax && slots.length < 6) {
+  while (cursor < timeMax) {
     const dayOfWeek = cursor.getDay();
     if (dayOfWeek === 0 || dayOfWeek === 6) {
       cursor.setDate(cursor.getDate() + 1);
@@ -64,35 +78,44 @@ export async function getAvailableSlots(daysAhead = 5): Promise<TimeSlot[]> {
       continue;
     }
 
-    for (const { start: startH, end: endH } of WORK_HOURS) {
-      cursor.setHours(startH, 0, 0, 0);
+    const dayLabel = formatDayLabel(cursor);
+    const slotsForDay: TimeSlot[] = [];
 
-      while (cursor.getHours() < endH && slots.length < 6) {
-        if (cursor > timeMin) {
-          const slotEnd = new Date(cursor.getTime() + SLOT_DURATION * 60000);
+    for (const { start: startH, end: endH } of WORK_HOURS) {
+      const slotCursor = new Date(cursor);
+      slotCursor.setHours(startH, 0, 0, 0);
+
+      while (slotCursor.getHours() < endH) {
+        if (slotCursor > timeMin) {
+          const slotEnd = new Date(slotCursor.getTime() + SLOT_DURATION * 60000);
           const isBusy = busy.some((b) => {
             const bs = new Date(b.start!);
             const be = new Date(b.end!);
-            return cursor < be && slotEnd > bs;
+            return slotCursor < be && slotEnd > bs;
           });
-
           if (!isBusy) {
-            slots.push({
-              start: new Date(cursor),
-              end: slotEnd,
-              label: formatSlot(cursor),
-            });
+            slotsForDay.push({ start: new Date(slotCursor), end: slotEnd, label: formatSlot(slotCursor) });
           }
         }
-        cursor.setMinutes(cursor.getMinutes() + SLOT_DURATION);
+        slotCursor.setMinutes(slotCursor.getMinutes() + SLOT_DURATION);
       }
+    }
+
+    if (slotsForDay.length > 0) {
+      days.push({ dayLabel, slots: slotsForDay });
     }
 
     cursor.setDate(cursor.getDate() + 1);
     cursor.setHours(0, 0, 0, 0);
   }
 
-  return slots;
+  return days;
+}
+
+// Compatibilidad: versión plana para reagendar
+export async function getAvailableSlots(daysAhead = 7): Promise<TimeSlot[]> {
+  const days = await getSlotsByDay(daysAhead);
+  return days.flatMap((d) => d.slots);
 }
 
 export async function createAppointment(

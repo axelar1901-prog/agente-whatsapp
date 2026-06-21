@@ -1,5 +1,5 @@
 import { getBookingState, setBookingState, resetBookingState } from "./db";
-import { getAvailableSlots, createAppointment, cancelAppointment, getUpcomingAppointments, isCalendarReady, TimeSlot } from "./google-calendar";
+import { getAvailableSlots, getSlotsByDay, createAppointment, cancelAppointment, getUpcomingAppointments, isCalendarReady, TimeSlot } from "./google-calendar";
 import type { calendar_v3 } from "googleapis";
 
 const BOOKING_TRIGGERS = [
@@ -183,27 +183,47 @@ export async function handleBookingFlow(
   }
 
   if (state.step === "ask_reason") {
-    setBookingState(conversationId, { step: "show_slots", reason: text.trim() });
-    const slots = await getAvailableSlots(7);
-    if (slots.length === 0) {
+    const reason = text.trim();
+    const days = await getSlotsByDay(7);
+    if (days.length === 0) {
       resetBookingState(conversationId);
-      return "Lo siento, no encontré horarios disponibles en los próximos 7 días. Por favor llame al consultorio.";
+      return "Lo siento, no encontré disponibilidad en los próximos 7 días. Por favor llame al consultorio al 33 1234 5678.";
     }
-    setBookingState(conversationId, { slots_json: JSON.stringify(slots.map((s) => ({ start: s.start, end: s.end, label: s.label }))) });
-    const list = slots.map((s, i) => `${i + 1}. ${s.label}`).join("\n");
-    return `Estos son los horarios disponibles:\n\n${list}\n\nResponda con el *número* del horario que prefiera, o escriba *salir* para cancelar.`;
+    setBookingState(conversationId, {
+      step: "pick_day",
+      reason,
+      slots_json: JSON.stringify(days.map((d) => ({
+        dayLabel: d.dayLabel,
+        slots: d.slots.map((s) => ({ start: s.start.toISOString(), end: s.end.toISOString(), label: s.label })),
+      }))),
+    });
+    const list = days.map((d, i) => `${i + 1}. *${d.dayLabel}* — ${d.slots.length} ${d.slots.length === 1 ? "horario" : "horarios"}`).join("\n");
+    return `¿Qué día prefiere?\n\n${list}\n\nResponda con el *número* del día, o *salir* para cancelar.`;
+  }
+
+  if (state.step === "pick_day") {
+    const num = parseInt(lower);
+    const days: { dayLabel: string; slots: { start: string; end: string; label: string }[] }[] = JSON.parse(state.slots_json ?? "[]");
+    if (isNaN(num) || num < 1 || num > days.length) {
+      return `Por favor responda con un número del 1 al ${days.length}, o escriba *salir*.`;
+    }
+    const chosen = days[num - 1];
+    setBookingState(conversationId, {
+      step: "show_slots",
+      slots_json: JSON.stringify(chosen.slots),
+    });
+    const list = chosen.slots.map((s, i) => `${i + 1}. ${s.label}`).join("\n");
+    return `Horarios disponibles el *${chosen.dayLabel}*:\n\n${list}\n\nResponda con el *número* del horario que prefiera.`;
   }
 
   if (state.step === "show_slots") {
     const num = parseInt(lower);
-    const slots: TimeSlot[] = JSON.parse(state.slots_json ?? "[]").map((s: { start: string; end: string; label: string }) => ({
-      start: new Date(s.start), end: new Date(s.end), label: s.label,
-    }));
+    const slots: { start: string; end: string; label: string }[] = JSON.parse(state.slots_json ?? "[]");
     if (isNaN(num) || num < 1 || num > slots.length) {
       return `Por favor responda con un número del 1 al ${slots.length}, o escriba *salir*.`;
     }
     const chosen = slots[num - 1];
-    setBookingState(conversationId, { step: "confirm", slots_json: JSON.stringify([{ start: chosen.start, end: chosen.end, label: chosen.label }]) });
+    setBookingState(conversationId, { step: "confirm", slots_json: JSON.stringify([chosen]) });
     return `Confirme su cita:\n\n📅 *${chosen.label}*\n👤 ${state.patient_name}\n📋 ${state.reason}\n\nResponda *sí* para confirmar o *salir* para cancelar.`;
   }
 
