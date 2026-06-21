@@ -7,6 +7,8 @@ import {
   getRecentHistory,
 } from "../db";
 import { generateReply } from "../openrouter";
+import { handleBookingFlow, isBookingIntent } from "../booking";
+import { getBookingState } from "../db";
 
 type WASocket = ReturnType<typeof makeWASocket>;
 
@@ -48,6 +50,19 @@ export async function handleIncomingMessages(
         continue;
       }
 
+      // Flujo de agendamiento de citas (tiene prioridad sobre el LLM)
+      const bookingState = getBookingState(convo.id);
+      const inBookingFlow = bookingState.step !== "idle";
+      const bookingReply = await handleBookingFlow(convo.id, phone, text);
+
+      if (bookingReply) {
+        insertMessage(convo.id, "assistant", bookingReply);
+        await sock.sendMessage(remoteJid, { text: bookingReply });
+        console.log(`[bot] → [CITA] ${bookingReply.slice(0, 80)}...`);
+        continue;
+      }
+
+      // Si no es flujo de citas, usar LLM
       const history = getRecentHistory(convo.id, 20);
       console.log(`[bot] Llamando LLM con ${history.length} mensajes...`);
 

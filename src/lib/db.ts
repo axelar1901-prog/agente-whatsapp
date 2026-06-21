@@ -53,6 +53,15 @@ db.exec(`
 
   CREATE INDEX IF NOT EXISTS idx_outbox_pending
     ON outbox(sent, created_at);
+
+  CREATE TABLE IF NOT EXISTS booking_state (
+    conversation_id INTEGER PRIMARY KEY REFERENCES conversations(id),
+    step TEXT NOT NULL DEFAULT 'idle',
+    patient_name TEXT,
+    reason TEXT,
+    slots_json TEXT,
+    updated_at INTEGER NOT NULL DEFAULT (unixepoch())
+  );
 `);
 
 export interface Conversation {
@@ -162,5 +171,42 @@ export const deleteConversation = db.transaction((id: number): void => {
   db.prepare("DELETE FROM messages WHERE conversation_id = ?").run(id);
   db.prepare("DELETE FROM conversations WHERE id = ?").run(id);
 });
+
+export interface BookingState {
+  conversation_id: number;
+  step: "idle" | "ask_name" | "ask_reason" | "show_slots" | "confirm";
+  patient_name: string | null;
+  reason: string | null;
+  slots_json: string | null;
+}
+
+export function getBookingState(conversationId: number): BookingState {
+  const row = db.prepare("SELECT * FROM booking_state WHERE conversation_id = ?").get(conversationId) as BookingState | undefined;
+  return row ?? { conversation_id: conversationId, step: "idle", patient_name: null, reason: null, slots_json: null };
+}
+
+export function setBookingState(conversationId: number, update: Partial<Omit<BookingState, "conversation_id">>): void {
+  const current = getBookingState(conversationId);
+  db.prepare(`
+    INSERT INTO booking_state (conversation_id, step, patient_name, reason, slots_json, updated_at)
+    VALUES (?, ?, ?, ?, ?, unixepoch())
+    ON CONFLICT(conversation_id) DO UPDATE SET
+      step = excluded.step,
+      patient_name = excluded.patient_name,
+      reason = excluded.reason,
+      slots_json = excluded.slots_json,
+      updated_at = unixepoch()
+  `).run(
+    conversationId,
+    update.step ?? current.step,
+    update.patient_name !== undefined ? update.patient_name : current.patient_name,
+    update.reason !== undefined ? update.reason : current.reason,
+    update.slots_json !== undefined ? update.slots_json : current.slots_json,
+  );
+}
+
+export function resetBookingState(conversationId: number): void {
+  db.prepare("DELETE FROM booking_state WHERE conversation_id = ?").run(conversationId);
+}
 
 export default db;
