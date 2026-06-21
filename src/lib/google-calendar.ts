@@ -99,14 +99,18 @@ export async function createAppointment(
   patientName: string,
   patientPhone: string,
   slot: { start: Date; end: Date },
-  reason?: string
+  reason?: string,
+  remoteJid?: string
 ): Promise<string> {
   const auth = getAuth();
   const calendar = google.calendar({ version: "v3", auth });
 
+  const displayPhone = patientPhone.length > 15 ? "(WhatsApp)" : patientPhone;
+  const jidLine = remoteJid ? `\nJID: ${remoteJid}` : "";
+
   const event: calendar_v3.Schema$Event = {
     summary: `Cita: ${patientName}`,
-    description: `Paciente: ${patientName}\nWhatsApp: ${patientPhone}${reason ? `\nMotivo: ${reason}` : ""}`,
+    description: `Paciente: ${patientName}\nWhatsApp: ${displayPhone}${jidLine}${reason ? `\nMotivo: ${reason}` : ""}`,
     start: { dateTime: slot.start.toISOString(), timeZone: "America/Mexico_City" },
     end: { dateTime: slot.end.toISOString(), timeZone: "America/Mexico_City" },
     reminders: {

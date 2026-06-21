@@ -105,7 +105,7 @@ export async function handleIncomingMessages(
       // Flujo de agendamiento de citas (tiene prioridad sobre el LLM)
       const bookingState = getBookingState(convo.id);
       const inBookingFlow = bookingState.step !== "idle";
-      const bookingReply = await handleBookingFlow(convo.id, phone, text);
+      const bookingReply = await handleBookingFlow(convo.id, phone, text, remoteJid);
 
       if (bookingReply) {
         insertMessage(convo.id, "assistant", bookingReply);

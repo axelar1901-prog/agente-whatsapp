@@ -52,7 +52,8 @@ function formatEvent(event: calendar_v3.Schema$Event, index: number): string {
 export async function handleBookingFlow(
   conversationId: number,
   phone: string,
-  text: string
+  text: string,
+  remoteJid?: string
 ): Promise<string | null> {
   if (!isCalendarReady()) return null;
 
@@ -212,7 +213,7 @@ export async function handleBookingFlow(
         start: new Date(s.start), end: new Date(s.end), label: s.label,
       }));
       const slot = slots[0];
-      await createAppointment(state.patient_name!, phone, slot, state.reason ?? undefined);
+      await createAppointment(state.patient_name!, phone, slot, state.reason ?? undefined, remoteJid);
       resetBookingState(conversationId);
       return `✅ ¡Cita confirmada!\n\n📅 ${slot.label}\n👤 ${state.patient_name}\n\nLe enviaremos un recordatorio. Si necesita cancelar o cambiar, escríbanos. ¡Hasta pronto!`;
     }
