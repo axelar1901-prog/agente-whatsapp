@@ -9,6 +9,7 @@ import {
 import { generateReply } from "../openrouter";
 import { handleBookingFlow, isBookingIntent } from "../booking";
 import { getBookingState } from "../db";
+import { assessTriage, getTriageResponse } from "../triage";
 
 type WASocket = ReturnType<typeof makeWASocket>;
 
@@ -47,6 +48,16 @@ export async function handleIncomingMessages(
       const fresh = getConversationById(convo.id);
       if (!fresh || fresh.mode !== "AI") {
         console.log(`[bot] Conversación ${convo.id} en modo HUMAN — sin respuesta automática`);
+        continue;
+      }
+
+      // Triaje de urgencias (máxima prioridad)
+      const triageLevel = assessTriage(text);
+      const triageReply = getTriageResponse(triageLevel);
+      if (triageReply) {
+        insertMessage(convo.id, "assistant", triageReply);
+        await sock.sendMessage(remoteJid, { text: triageReply });
+        console.log(`[bot] → [TRIAJE:${triageLevel}] ${phone}`);
         continue;
       }
 
