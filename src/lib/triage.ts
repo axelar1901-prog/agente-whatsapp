@@ -13,6 +13,18 @@ const URGENT_KEYWORDS = [
   "mareo fuerte", "vómito constante", "dolor de cabeza fuerte",
 ];
 
+const HUMAN_REQUEST_KEYWORDS = [
+  "hablar con alguien", "hablar con una persona", "hablar con recepcionista",
+  "quiero hablar con", "necesito hablar con", "comunicarme con alguien",
+  "atención humana", "persona real", "no quiero bot", "quiero una persona",
+  "me comunicas", "comunícame", "atiéndeme", "necesito ayuda de una persona",
+];
+
+export function isHumanRequest(text: string): boolean {
+  const lower = text.toLowerCase();
+  return HUMAN_REQUEST_KEYWORDS.some((k) => lower.includes(k));
+}
+
 export type TriageLevel = "emergency" | "urgent" | "normal";
 
 export function assessTriage(text: string): TriageLevel {

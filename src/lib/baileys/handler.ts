@@ -9,7 +9,7 @@ import {
 import { generateReply } from "../openrouter";
 import { handleBookingFlow, isBookingIntent } from "../booking";
 import { getBookingState } from "../db";
-import { assessTriage, getTriageResponse } from "../triage";
+import { assessTriage, getTriageResponse, isHumanRequest } from "../triage";
 import { WELCOME_MENU, handleMenuSelection, isMenuTrigger } from "../menu";
 import { markGreeted } from "../db";
 
@@ -78,6 +78,17 @@ export async function handleIncomingMessages(
         insertMessage(convo.id, "assistant", menuResult.response);
         await sock.sendMessage(remoteJid, { text: menuResult.response });
         console.log(`[bot] → [MENU:info] ${phone}`);
+        continue;
+      }
+
+      // Detectar solicitud de atención humana
+      if (isHumanRequest(text) && bookingStateNow.step === "idle") {
+        const { setMode } = await import("../db");
+        setMode(convo.id, "HUMAN");
+        const humanReply = "Con gusto le comunico con nuestra recepcionista. Un momento por favor, alguien le atenderá en breve. 🙏";
+        insertMessage(convo.id, "assistant", humanReply);
+        await sock.sendMessage(remoteJid, { text: humanReply });
+        console.log(`[bot] → [HUMANO solicitado] ${phone}`);
         continue;
       }
 
