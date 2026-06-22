@@ -22,11 +22,12 @@ interface Conversation {
 
 interface Props {
   conversation: Conversation;
+  lastMessageAt: number | null;
   onModeChange: (mode: "AI" | "HUMAN") => void;
   onDelete: () => void;
 }
 
-export default function ConversationPanel({ conversation, onModeChange, onDelete }: Props) {
+export default function ConversationPanel({ conversation, lastMessageAt, onModeChange, onDelete }: Props) {
   const [messages, setMessages] = useState<Message[]>([]);
   const [mode, setMode] = useState<"AI" | "HUMAN">(conversation.mode);
   const [input, setInput] = useState("");
@@ -40,9 +41,8 @@ export default function ConversationPanel({ conversation, onModeChange, onDelete
   }, [conversation.id]);
 
   useEffect(() => {
-    const interval = setInterval(loadMessages, 2000);
-    return () => clearInterval(interval);
-  }, [conversation.id]);
+    if (lastMessageAt) loadMessages();
+  }, [lastMessageAt]);
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });

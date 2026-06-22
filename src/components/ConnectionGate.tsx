@@ -95,6 +95,7 @@ export default function ConnectionGate() {
           {selected ? (
             <ConversationPanel
               conversation={selected}
+              lastMessageAt={selected.last_message_at}
               onModeChange={(mode) => handleModeChange(selected.id, mode)}
               onDelete={handleDelete}
             />
