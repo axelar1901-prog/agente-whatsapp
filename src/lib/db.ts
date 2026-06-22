@@ -155,6 +155,15 @@ export function setMode(conversationId: number, mode: "AI" | "HUMAN"): void {
   db.prepare("UPDATE conversations SET mode = ? WHERE id = ?").run(mode, conversationId);
 }
 
+export function getStats() {
+  const todayStart = Math.floor(new Date().setHours(0, 0, 0, 0) / 1000);
+  const totalConversations = (db.prepare("SELECT COUNT(*) as n FROM conversations").get() as { n: number }).n;
+  const conversationsToday = (db.prepare("SELECT COUNT(*) as n FROM conversations WHERE created_at >= ?").get(todayStart) as { n: number }).n;
+  const messagesReceived = (db.prepare("SELECT COUNT(*) as n FROM messages WHERE role = 'user' AND created_at >= ?").get(todayStart) as { n: number }).n;
+  const needsHuman = (db.prepare("SELECT COUNT(*) as n FROM conversations WHERE mode = 'HUMAN'").get() as { n: number }).n;
+  return { totalConversations, conversationsToday, messagesReceived, needsHuman };
+}
+
 export function listConversations(): (Conversation & { last_message_preview: string | null })[] {
   return db.prepare(`
     SELECT c.*,

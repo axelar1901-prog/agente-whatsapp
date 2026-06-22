@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import QRScreen from "./QRScreen";
 import DashboardHeader from "./DashboardHeader";
+import StatsBar from "./StatsBar";
 import ConversationList from "./ConversationList";
 import ConversationPanel from "./ConversationPanel";
 
@@ -78,6 +79,7 @@ export default function ConnectionGate() {
   return (
     <div className="flex flex-col h-screen bg-gray-100">
       <DashboardHeader phone={phone} onDisconnect={handleDisconnect} />
+      <StatsBar />
       <div className="flex flex-1 overflow-hidden">
         <aside className="w-72 bg-white border-r border-gray-200 flex flex-col">
           <div className="px-4 py-3 border-b border-gray-100">
