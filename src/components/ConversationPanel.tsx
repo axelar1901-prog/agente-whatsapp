@@ -49,7 +49,7 @@ export default function ConversationPanel({ conversation, onModeChange, onDelete
   }, [messages]);
 
   async function loadMessages() {
-    const res = await fetch(`/api/messages/${conversation.id}`, { cache: "no-store" });
+    const res = await fetch(`/api/messages/${conversation.id}?t=${Date.now()}`);
     if (res.ok) setMessages(await res.json());
   }
 
